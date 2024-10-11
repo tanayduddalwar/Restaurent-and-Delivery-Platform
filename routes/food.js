@@ -6,6 +6,8 @@ const jwt = require("jsonwebtoken");
 const foodmodel = require("../models/foodschema");
 const usermodel=require("../models/userschema");
 const restaurentmodel=require("../models/restaurentschema");
+const categorymodel = require("../models/categoryschema");
+
 router.post("/create", jwtauthmiddleware, async (req, res) => {
   console.log("Inside create food API");
   try {
@@ -15,15 +17,15 @@ router.post("/create", jwtauthmiddleware, async (req, res) => {
       price,
       imageUrl,
       foodTags,
-      category, // corrected field name
+      category, // Category name (could be a string)
       code,
-      isAvailable, // corrected field name
-      restaurant, // corrected field name
+      isAvailable,
+      restaurant, // Restaurant ID
       rating,
     } = req.body;
 
     // Find the user and check if they are an admin
-      const userId = req.user._id;
+    const userId = req.user._id;
     const user = await usermodel.findById(userId);
     if (user.usertype !== "admin") {
       return res.status(401).send({
@@ -40,14 +42,23 @@ router.post("/create", jwtauthmiddleware, async (req, res) => {
       });
     }
 
-    // Create new food item
+    // Check if the category already exists by its title
+    let categoryData = await categorymodel.findOne({ title: category });
+
+    // If category doesn't exist, create it
+    if (!categoryData) {
+      categoryData = new categorymodel({ title: category, foods: [] });
+      await categoryData.save();  // Save the new category
+    }
+
+    // Create new food item with the category's ObjectId
     const newFood = new foodmodel({
       title,
       description,
       price,
       imageUrl,
       foodTags,
-      category,
+      category: categoryData._id,  // Use the category's ObjectId here
       code,
       isAvailable,
       restaurant,
@@ -72,11 +83,20 @@ router.post("/create", jwtauthmiddleware, async (req, res) => {
     // Save the updated restaurant
     await restaurantData.save();
 
+    // Add the new food's dish name to the category's foods list
+    categoryData.foods.push({ dishName: newFood.title, dishPic: newFood.imageUrl, price: newFood.price });
+
+    // Save the updated category
+    await categoryData.save();
+
     res.status(201).send({
       success: true,
-      message: "New Food Item Created and added to the restaurant",
+      message: "New Food Item Created and added to the restaurant and category",
       newFood,
+      restaurant: restaurantData,
+      category: categoryData
     });
+
   } catch (error) {
     console.log(error);
     res.status(500).send({

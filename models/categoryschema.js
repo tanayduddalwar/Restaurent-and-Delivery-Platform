@@ -8,15 +8,10 @@ const categoryschema = new mongoose.Schema({
   imageUrl: {
     type: String,
   },
-  foods: [{
-    _id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Food",
-    },
-    title: {
-      type: String,  // Store food title in the category as well
-    }
-  }],  // Array to store references and titles of the Food model
+  foods: { 
+    type: Array,
+    default: [],  // Initialize with an empty array
+  }, // Array to store references and titles of the Food model
 }, { timestamps: true });
 
 const categorymodel = mongoose.model("Category", categoryschema);
