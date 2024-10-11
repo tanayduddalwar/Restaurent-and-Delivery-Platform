@@ -14,7 +14,7 @@ app.use("/", path);
 app.use("/restaurent",respath);
 app.use("/category",cat);
 app.use("/food",food);
-app.use("/",order)
+app.use("/order",order)
 
 app.listen(PORT, () => {
     console.log(`Server started at port ${PORT}`);
