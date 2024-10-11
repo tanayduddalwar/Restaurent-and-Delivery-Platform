@@ -5,9 +5,9 @@ const { jwtauthmiddleware, generate_token } = require("../jwt");
 const jwt = require("jsonwebtoken");
 const foodmodel = require("../models/foodschema");
 const usermodel=require("../models/userschema");
-const restaurentmodel = require("../models/restaurentschema");
-const categorymodel = require("../models/categoryschema");
+const restaurentmodel=require("../models/restaurentschema");
 router.post("/create", jwtauthmiddleware, async (req, res) => {
+  console.log("Inside create food API");
   try {
     const {
       title,
@@ -15,46 +15,67 @@ router.post("/create", jwtauthmiddleware, async (req, res) => {
       price,
       imageUrl,
       foodTags,
-      category,  // This will be the category name, e.g., "Main Course"
+      category, // corrected field name
       code,
-      isAvailable,
-      restaurant,
+      isAvailable, // corrected field name
+      restaurant, // corrected field name
       rating,
-      ratingCount
     } = req.body;
 
-    // Check if the category already exists
-    let categoryData = await categorymodel.findOne({ title: category });
-    
-    // If category doesn't exist, create it
-    if (!categoryData) {
-      categoryData = new categorymodel({ title: category });
-      await categoryData.save();  // Save the new category
+    // Find the user and check if they are an admin
+      const userId = req.user._id;
+    const user = await usermodel.findById(userId);
+    if (user.usertype !== "admin") {
+      return res.status(401).send({
+        success: false,
+        message: "Only admins are allowed to do this task",
+      });
     }
 
-    // Create new food item with the category's ObjectId
+    // Validation of required fields
+    if (!title || !description || !price || !restaurant) {
+      return res.status(400).send({
+        success: false,
+        message: "Please provide all required fields (title, description, price, restaurant).",
+      });
+    }
+
+    // Create new food item
     const newFood = new foodmodel({
       title,
       description,
       price,
       imageUrl,
       foodTags,
-      category: categoryData._id,  // Use the category's ObjectId here
+      category,
       code,
       isAvailable,
       restaurant,
       rating,
-      ratingCount
     });
 
     // Save the new food item
     await newFood.save();
 
+    // Find the restaurant and update its foods array
+    const restaurantData = await restaurentmodel.findById(restaurant);
+    if (!restaurantData) {
+      return res.status(404).send({
+        success: false,
+        message: "Restaurant not found",
+      });
+    }
+
+    // Add the new food's dish name to the restaurant's foods list
+    restaurantData.foods.push({ dishName: newFood.title, dishPic: newFood.imageUrl, price: newFood.price });
+
+    // Save the updated restaurant
+    await restaurantData.save();
+
     res.status(201).send({
       success: true,
-      message: "New Food Item Created and Category added if it didn't exist",
+      message: "New Food Item Created and added to the restaurant",
       newFood,
-      category: categoryData  // Return the category as well
     });
   } catch (error) {
     console.log(error);
@@ -65,7 +86,6 @@ router.post("/create", jwtauthmiddleware, async (req, res) => {
     });
   }
 });
-
 
 
 router.get("/getall", async (req,res)=>{
