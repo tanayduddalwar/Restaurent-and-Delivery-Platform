@@ -8,11 +8,13 @@ const path = require("./routes/userroute"); // Make sure this path is correct an
 const respath=require("./routes/restaurent");
 const cat=require("./routes/category");
 const food=require("./routes/food");
+const order=require("./routes/order");
 // Use the correct variable `path` instead of `pa`
 app.use("/", path);
 app.use("/restaurent",respath);
 app.use("/category",cat);
 app.use("/food",food);
+app.use("/",order)
 
 app.listen(PORT, () => {
     console.log(`Server started at port ${PORT}`);

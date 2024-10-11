@@ -13,6 +13,7 @@ const foodschema = new mongoose.Schema(
     price: {
       type: Number,
       required: [true, "Food price is required"],
+      min: 0, // Ensure that price is a positive value
     },
     imageUrl: {
       type: String,
@@ -20,13 +21,16 @@ const foodschema = new mongoose.Schema(
         "https://image.similarpng.com/very-thumbnail/2021/09/Good-food-logo-design-on-transparent-background-PNG.png",
     },
     foodTags: {
-      type: String,
+      type: [String],  // Store tags as an array of strings for flexibility
     },
     category: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",  // Reference to the Category model (change if necessary)
+      required: [true, "Category is required"],
     },
     code: {
       type: String,
+      unique: true,  // Ensure that the food code is unique
     },
     isAvailable: {
       type: Boolean,
@@ -34,7 +38,8 @@ const foodschema = new mongoose.Schema(
     },
     restaurant: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Restaurant",
+      ref: "Restaurant",  // Reference to the Restaurant model
+      required: [true, "Restaurant reference is required"],
     },
     rating: {
       type: Number,
@@ -43,7 +48,8 @@ const foodschema = new mongoose.Schema(
       max: 5,
     },
     ratingCount: {
-      type: String,
+      type: Number,  // Changed to Number to represent the count
+      default: 0,    // Default to 0 when a food item is created
     },
   },
   { timestamps: true }

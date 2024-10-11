@@ -5,89 +5,80 @@ const { jwtauthmiddleware, generate_token} = require("../jwt");
 const jwt=require("jsonwebtoken");
 const categorymodel=require("../models/categoryschema");
 
-router.post("/create",jwtauthmiddleware,async (req,res)=>{
-    try {
-        const { title, imageUrl } = req.body;
-        //valdn
-        if (!title) {
-          return res.status(500).send({
-            success: false,
-            message: "please provide category title or image",
-          });
-        }
-        const newCategory = new categorymodel({ title, imageUrl });
-        await newCategory.save();
-        res.status(201).send({
-          success: true,
-          message: "category created",
-          newCategory,
-        });
-      } catch (error) {
-        console.log(error);
-        res.status(500).send({
-          success: false,
-          message: "Error In Create Cat API",
-          error,
-        });
-      }
- });
-
- router.delete("/delete/:id",jwtauthmiddleware,async(req,res)=>{
-  console.log("Inside the delete category block");
+router.post("/create", jwtauthmiddleware, async (req, res) => {
   try {
-    const { id } = req.params;
-    if (!id) {
-      return res.status(500).send({
-        success: false,
-        message: "Please provide Category ID",
-      });
+    const {
+      title,
+      description,
+      price,
+      imageUrl,
+      foodTags,
+      category,  // Category name, e.g., "fast food"
+      code,
+      isAvailable,
+      restaurant,
+      rating,
+      ratingCount
+    } = req.body;
+
+    // Check if the category already exists by title
+    let categoryData = await categorymodel.findOne({ title: category });
+
+    // If category doesn't exist, create it
+    if (!categoryData) {
+      categoryData = new categorymodel({ title: category });
+      await categoryData.save();  // Save the new category
     }
-    const category = await categorymodel.findById(id);
-    if (!category) {
-      return res.status(500).send({
-        success: false,
-        message: "No Category Found With this id",
-      });
-    }
-    await categorymodel.findByIdAndDelete(id);
-    res.status(200).send({
+
+    // Create new food item with the category's ObjectId
+    const newFood = new foodmodel({
+      title,
+      description,
+      price,
+      imageUrl,
+      foodTags,
+      category: categoryData._id,  // Use the category's ObjectId here
+      code,
+      isAvailable,
+      restaurant,
+      rating,
+      ratingCount
+    });
+
+    // Save the new food item
+    await newFood.save();
+
+    // Debugging: Log the new food details
+    console.log("New food created:", newFood);
+
+    // Add the new food's ObjectId and title to the category's foods array
+    categoryData.foods.push({ _id: newFood._id, title: newFood.title });
+
+    // Debugging: Log the updated category before saving
+    console.log("Updated category with new food:", categoryData);
+
+    // Save the updated category with the new food reference and title
+    const updatedCategory = await categoryData.save();
+
+    // Debugging: Log the updated category after saving
+    console.log("Updated category after saving:", updatedCategory);
+
+    res.status(201).send({
       success: true,
-      message: "category Deleted succssfully",
+      message: "New Food Item Created and Category updated with food",
+      newFood,
+      category: updatedCategory  // Return the updated category
     });
   } catch (error) {
     console.log(error);
     res.status(500).send({
       success: false,
-      message: "error in Delete Cat APi",
-      error,
-    });
-  }
- });
-
-router.get("/getall",jwtauthmiddleware,async(req,res)=>{
-  console.log("Inside the get all restaurents api");
-  try {
-    const categories = await categorymodel.find({});
-    if (!categories) {
-      return res.status(404).send({
-        success: false,
-        message: "No Categories found",
-      });
-    }
-    res.status(200).send({
-      success: true,
-      totalCat: categories.length,
-      categories,
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).send({
-      success: false,
-      message: "Erorr in get All Categpry API",
+      message: "Error in creating food item",
       error,
     });
   }
 });
+
 router.put("/update/:id",jwtauthmiddleware,async(req,res)=>{
   console.log("Inside the update category api");
   try {

@@ -1,17 +1,23 @@
-const mongoose=require("mongoose");
-const categorySchema = new mongoose.Schema(
-    {
-      title: {
-        type: String,
-        required: [true, "category title is required"],
-      },
-      imageUrl: {
-        type: String,
-        default:
-          "https://image.similarpng.com/very-thumbnail/2021/09/Good-food-logo-design-on-transparent-background-PNG.png",
-      },
+const mongoose = require("mongoose");
+
+const categoryschema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+  },
+  imageUrl: {
+    type: String,
+  },
+  foods: [{
+    _id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Food",
     },
-    { timestamps: true }
-  );
-const categorymodel=mongoose.model("Category",categorySchema);
-module.exports=categorymodel
+    title: {
+      type: String,  // Store food title in the category as well
+    }
+  }],  // Array to store references and titles of the Food model
+}, { timestamps: true });
+
+const categorymodel = mongoose.model("Category", categoryschema);
+module.exports = categorymodel;
