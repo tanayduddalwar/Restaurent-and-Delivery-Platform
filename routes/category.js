@@ -1,10 +1,61 @@
-const express=require("express");
-const app=express();
-const router=express.Router();
-const { jwtauthmiddleware, generate_token} = require("../jwt");
-const jwt=require("jsonwebtoken");
-const categorymodel=require("../models/categoryschema");
+const express = require("express");
+const router = express.Router();
+const { jwtauthmiddleware } = require("../jwt");
+const categorymodel = require("../models/categoryschema");
+const foodmodel = require("../models/foodschema"); // Ensure this is imported
 
+/**
+ * @swagger
+ * tags:
+ *   name: Category
+ *   description: API for managing food items and categories
+ */
+
+/**
+ * @swagger
+ * /api/food/create:
+ *   post:
+ *     summary: Create a new food item and associate it with a category
+ *     tags: [Food]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               imageUrl:
+ *                 type: string
+ *               foodTags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               category:
+ *                 type: string
+ *               code:
+ *                 type: string
+ *               isAvailable:
+ *                 type: boolean
+ *               restaurant:
+ *                 type: string
+ *               rating:
+ *                 type: number
+ *               ratingCount:
+ *                 type: number
+ *     responses:
+ *       201:
+ *         description: New food item created and category updated
+ *       500:
+ *         description: Error in creating food item
+ */
 router.post("/create", jwtauthmiddleware, async (req, res) => {
   try {
     const {
@@ -13,64 +64,48 @@ router.post("/create", jwtauthmiddleware, async (req, res) => {
       price,
       imageUrl,
       foodTags,
-      category,  // Category name, e.g., "fast food"
+      category,
       code,
       isAvailable,
       restaurant,
       rating,
-      ratingCount
+      ratingCount,
     } = req.body;
 
-    // Check if the category already exists by title
     let categoryData = await categorymodel.findOne({ title: category });
 
-    // If category doesn't exist, create it
     if (!categoryData) {
       categoryData = new categorymodel({ title: category });
-      await categoryData.save();  // Save the new category
+      await categoryData.save();
     }
 
-    // Create new food item with the category's ObjectId
     const newFood = new foodmodel({
       title,
       description,
       price,
       imageUrl,
       foodTags,
-      category: categoryData._id,  // Use the category's ObjectId here
+      category: categoryData._id,
       code,
       isAvailable,
       restaurant,
       rating,
-      ratingCount
+      ratingCount,
     });
 
-    // Save the new food item
     await newFood.save();
 
-    // Debugging: Log the new food details
-    console.log("New food created:", newFood);
-
-    // Add the new food's ObjectId and title to the category's foods array
     categoryData.foods.push({ _id: newFood._id, title: newFood.title });
-
-    // Debugging: Log the updated category before saving
-    console.log("Updated category with new food:", categoryData);
-
-    // Save the updated category with the new food reference and title
     const updatedCategory = await categoryData.save();
-
-    // Debugging: Log the updated category after saving
-    console.log("Updated category after saving:", updatedCategory);
 
     res.status(201).send({
       success: true,
-      message: "New Food Item Created and Category updated with food",
+      message: "New Food Item Created and Category Updated",
       newFood,
-      category: updatedCategory  // Return the updated category
+      category: updatedCategory,
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).send({
       success: false,
       message: "Error in creating food item",
@@ -79,33 +114,68 @@ router.post("/create", jwtauthmiddleware, async (req, res) => {
   }
 });
 
-router.put("/update/:id",jwtauthmiddleware,async(req,res)=>{
-  console.log("Inside the update category api");
+/**
+ * @swagger
+ * /api/category/update/{id}:
+ *   put:
+ *     summary: Update an existing category
+ *     tags: [Food]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the category to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               imageUrl:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Category Updated Successfully
+ *       500:
+ *         description: Error in updating category
+ */
+router.put("/update/:id", jwtauthmiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, imageUrl } = req.body;
+
     const updatedCategory = await categorymodel.findByIdAndUpdate(
       id,
       { title, imageUrl },
       { new: true }
     );
+
     if (!updatedCategory) {
       return res.status(500).send({
         success: false,
         message: "No Category Found",
       });
     }
+
     res.status(200).send({
       success: true,
       message: "Category Updated Successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).send({
       success: false,
-      message: "error in update cat api",
+      message: "Error in updating category",
       error,
     });
   }
-})
- module.exports=router
+});
+
+module.exports = router;

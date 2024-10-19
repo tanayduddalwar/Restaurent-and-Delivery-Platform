@@ -1,259 +1,202 @@
 const express = require("express");
-const app = express();
 const router = express.Router();
-const { jwtauthmiddleware, generate_token } = require("../jwt");
-const jwt = require("jsonwebtoken");
+const { jwtauthmiddleware } = require("../jwt");
 const foodmodel = require("../models/foodschema");
-const usermodel=require("../models/userschema");
-const restaurentmodel=require("../models/restaurentschema");
+const usermodel = require("../models/userschema");
+const restaurentmodel = require("../models/restaurentschema");
 const categorymodel = require("../models/categoryschema");
 
-router.post("/create", jwtauthmiddleware, async (req, res) => {
-  console.log("Inside create food API");
-  try {
-    const {
-      title,
-      description,
-      price,
-      imageUrl,
-      foodTags,
-      category, // Category name (could be a string)
-      code,
-      isAvailable,
-      restaurant, // Restaurant ID
-      rating,
-    } = req.body;
+/**
+ * @swagger
+ * tags:
+ *   name: Foods
+ *   description: API for managing food items
+ */
 
-    // Find the user and check if they are an admin
-    const userId = req.user._id;
-    const user = await usermodel.findById(userId);
+/**
+ * @swagger
+ * /food/create:
+ *   post:
+ *     summary: Create a new food item
+ *     tags: [Foods]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               imageUrl:
+ *                 type: string
+ *               foodTags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               category:
+ *                 type: string
+ *               code:
+ *                 type: string
+ *               isAvailable:
+ *                 type: boolean
+ *               restaurant:
+ *                 type: string
+ *               rating:
+ *                 type: number
+ *     responses:
+ *       201:
+ *         description: New food item created successfully
+ *       400:
+ *         description: Missing required fields
+ *       401:
+ *         description: Unauthorized, only admins can create food items
+ *       500:
+ *         description: Error creating food item
+ */
+router.post("/create", jwtauthmiddleware, async (req, res) => {
+  try {
+    const { title, description, price, restaurant } = req.body;
+
+    const user = await usermodel.findById(req.user._id);
     if (user.usertype !== "admin") {
       return res.status(401).send({
         success: false,
-        message: "Only admins are allowed to do this task",
+        message: "Only admins are allowed to perform this task",
       });
     }
 
-    // Validation of required fields
-    if (!title || !description || !price || !restaurant) {
-      return res.status(400).send({
-        success: false,
-        message: "Please provide all required fields (title, description, price, restaurant).",
-      });
-    }
-
-    // Check if the category already exists by its title
-    let categoryData = await categorymodel.findOne({ title: category });
-
-    // If category doesn't exist, create it
-    if (!categoryData) {
-      categoryData = new categorymodel({ title: category, foods: [] });
-      await categoryData.save();  // Save the new category
-    }
-
-    // Create new food item with the category's ObjectId
-    const newFood = new foodmodel({
-      title,
-      description,
-      price,
-      imageUrl,
-      foodTags,
-      category: categoryData._id,  // Use the category's ObjectId here
-      code,
-      isAvailable,
-      restaurant,
-      rating,
-    });
-
-    // Save the new food item
+    const newFood = new foodmodel(req.body);
     await newFood.save();
 
-    // Find the restaurant and update its foods array
     const restaurantData = await restaurentmodel.findById(restaurant);
-    if (!restaurantData) {
-      return res.status(404).send({
-        success: false,
-        message: "Restaurant not found",
-      });
+    if (restaurantData) {
+      restaurantData.foods.push(newFood);
+      await restaurantData.save();
     }
-
-    // Add the new food's dish name to the restaurant's foods list
-    restaurantData.foods.push({ dishName: newFood.title, dishPic: newFood.imageUrl, price: newFood.price });
-
-    // Save the updated restaurant
-    await restaurantData.save();
-
-    // Add the new food's dish name to the category's foods list
-    categoryData.foods.push({ dishName: newFood.title, dishPic: newFood.imageUrl, price: newFood.price });
-
-    // Save the updated category
-    await categoryData.save();
 
     res.status(201).send({
       success: true,
-      message: "New Food Item Created and added to the restaurant and category",
+      message: "New Food Item Created",
       newFood,
-      restaurant: restaurantData,
-      category: categoryData
     });
-
   } catch (error) {
-    console.log(error);
-    res.status(500).send({
-      success: false,
-      message: "Error in creating food item",
-      error,
-    });
+    res.status(500).send({ success: false, message: "Error creating food item", error });
   }
 });
 
-
-router.get("/getall", async (req,res)=>{
-    console.log("inside it");
-    try {
-        const foods = await foodmodel.find({});
-        if (!foods) {
-          return res.status(404).send({
-            success: false,
-            message: "no food items was found",
-          });
-        }
-        res.status(200).send({
-          success: true,
-          totalFoods: foods.length,
-          foods,
-        });
-      } catch (error) {
-        console.log(error);
-        res.status(500).send({
-          success: false,
-          message: "Erro In Get ALL Foods API",
-          error,
-        });
-      }
-});
-
-router.get("/get/:id",async(req,res)=>{
-    try {
-        const foodId = req.params.id;
-        if (!foodId) {
-          return res.status(404).send({
-            success: false,
-            message: "please provide id",
-          });
-        }
-        const food = await foodmodel.findById(foodId);
-        if (!food) {
-          return res.status(404).send({
-            success: false,
-            message: "No Food Found with htis id",
-          });
-        }
-        res.status(200).send({
-          success: true,
-          food,
-        });
-      } catch (error) {
-        console.log(error);
-        res.status(500).send({
-          success: false,
-          message: "Error In get SIngle Food API",
-          error,
-        });
-      }
-});
-
-router.get("/foodbyrestaurent/:id",async(req,res)=>{
-    try {
-        const resturantId = req.params.id;
-        if (!resturantId) {
-          return res.status(404).send({
-            success: false,
-            message: "please provide id",
-          });
-        }
-        const food = await foodmodel.find({ resturnat: resturantId });
-        if (!food) {
-          return res.status(404).send({
-            success: false,
-            message: "No Food Found with htis id",
-          });
-        }
-        res.status(200).send({
-          success: true,
-          message: "food base on restuatrn",
-          food,
-        });
-      } catch (error) {
-        console.log(error);
-        res.status(500).send({
-          success: false,
-          message: "Error In get SIngle Food API",
-          error,
-        });
-      }
-});
-router.put("/updatefood/:id",jwtauthmiddleware,async (req,res)=>{
+/**
+ * @swagger
+ * /food/getall:
+ *   get:
+ *     summary: Retrieve all food items
+ *     tags: [Foods]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved all food items
+ *       404:
+ *         description: No food items found
+ *       500:
+ *         description: Error fetching food items
+ */
+router.get("/getall", async (req, res) => {
   try {
-    const foodID = req.params.id;
-    if (!foodID) {
-      return res.status(404).send({
-        success: false,
-        message: "no food id was found",
-      });
-    }
-    const user = await userModel.findOne({ _id: req.user.id });
-    if(user.usertype!="admin"){
-      return res.status(401),send({msg:"Only admins are allowed to do this task"});
-    }
-
-    const food = await foodmodel.findById(foodID);
-    if (!food) {
-      return res.status(404).send({
-        success: false,
-        message: "No Food Found",
-      });
-    }
-    const {
-      title,
-      description,
-      price,
-      imageUrl,
-      foodTags,
-      catgeory,
-      code,
-      isAvailabe,
-      resturnat,
-      rating,
-    } = req.body;
-    const updatedFood = await foodModal.findByIdAndUpdate(
-      foodID,
-      {
-        title,
-        description,
-        price,
-        imageUrl,
-        foodTags,
-        catgeory,
-        code,
-        isAvailabe,
-        resturnat,
-        rating,
-      },
-      { new: true }
-    );
-    res.status(200).send({
-      success: true,
-      message: "Food Item Was Updated",
-    });
+    const foods = await foodmodel.find({});
+    res.status(200).send({ success: true, foods });
   } catch (error) {
-    console.log(error);
-    res.status(500).send({
-      success: false,
-      message: "Erorr In Update Food API",
-      error,
-    });
+    res.status(500).send({ success: false, message: "Error fetching foods", error });
   }
-})
+});
+
+/**
+ * @swagger
+ * /food/get/{id}:
+ *   get:
+ *     summary: Retrieve a food item by ID
+ *     tags: [Foods]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the food item to retrieve
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the food item
+ *       404:
+ *         description: No food item found with this ID
+ *       500:
+ *         description: Error retrieving the food item
+ */
+router.get("/get/:id", async (req, res) => {
+  try {
+    const food = await foodmodel.findById(req.params.id);
+    if (!food) {
+      return res.status(404).send({ success: false, message: "No food item found" });
+    }
+    res.status(200).send({ success: true, food });
+  } catch (error) {
+    res.status(500).send({ success: false, message: "Error fetching food item", error });
+  }
+});
+
+/**
+ * @swagger
+ * /food/updatefood/{id}:
+ *   put:
+ *     summary: Update a food item
+ *     tags: [Foods]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the food item to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               imageUrl:
+ *                 type: string
+ *               isAvailable:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Food item updated successfully
+ *       404:
+ *         description: No food item found with this ID
+ *       500:
+ *         description: Error updating food item
+ */
+router.put("/updatefood/:id", jwtauthmiddleware, async (req, res) => {
+  try {
+    const updatedFood = await foodmodel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updatedFood) {
+      return res.status(404).send({ success: false, message: "No food item found" });
+    }
+    res.status(200).send({ success: true, message: "Food item updated", updatedFood });
+  } catch (error) {
+    res.status(500).send({ success: false, message: "Error updating food item", error });
+  }
+});
 
 module.exports = router;

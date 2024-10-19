@@ -9,6 +9,9 @@ const respath=require("./routes/restaurent");
 const cat=require("./routes/category");
 const food=require("./routes/food");
 const order=require("./routes/order");
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swaggerConfig');
+app.use('/swaagger', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Use the correct variable `path` instead of `pa`
 app.use("/", path);
 app.use("/restaurent",respath);
