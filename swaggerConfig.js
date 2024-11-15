@@ -11,7 +11,7 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      url: 'http://localhost:8000', // Replace with your server URL
+      url: 'https://restaurent-and-delivery-backend.onrender.com', // Replace with your server URL
     },
   ],
 };
